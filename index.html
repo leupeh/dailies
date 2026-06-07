@@ -142,24 +142,25 @@
         const savedTime = localStorage.getItem(UNCHECK_TIME_KEY) || '00:00';
         document.getElementById('uncheckTime').value = savedTime;
         
-        initializeUncheckSchedule();
+        // ALWAYS check and uncheck on page load to catch missed resets
         checkAndUncheck();
+        
+        // THEN schedule the next timer for live updates if tab stays open
+        initializeUncheckSchedule();
+        
         renderTasks();
     });
 
-    // If user changes the time, immediately recalculate the next uncheck
+    // If user changes the time, recalculate and re-check immediately
     document.getElementById('uncheckTime').addEventListener('change', (e) => {
         localStorage.setItem(UNCHECK_TIME_KEY, e.target.value);
+        checkAndUncheck();
         initializeUncheckSchedule();
-        checkAndUncheck(); 
     });
 
     document.getElementById('taskInput').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') addTask();
     });
-
-    // Fallback: check every 60 seconds in case the browser throttles the exact timer in the background
-    setInterval(checkAndUncheck, 60000);
 
     // --- CORE UNCHECK LOGIC (NEVER DELETES TASKS) ---
 
@@ -170,23 +171,19 @@
         scheduleUncheck();
     }
 
-    // Calculates the exact millisecond of the NEXT occurrence of the target time
     function calculateNextUncheckTimestamp(timeStr) {
         const [h, m] = timeStr.split(':').map(Number);
         const now = new Date();
         
-        // Create a date object for TODAY at the target time
         let nextUncheck = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
         
-        // If that time has already passed today, push it to TOMORROW
         if (now >= nextUncheck) {
             nextUncheck.setDate(nextUncheck.getDate() + 1);
         }
         
-        return nextUncheck.getTime(); // Return exact millisecond timestamp
+        return nextUncheck.getTime();
     }
 
-    // Sets a precise timer to trigger the uncheck at the exact millisecond
     function scheduleUncheck() {
         if (uncheckTimeoutId) clearTimeout(uncheckTimeoutId);
         
@@ -200,9 +197,10 @@
         }
     }
 
-    // Checks if it's time to uncheck (used on load and by the 60s fallback)
+    // GUARANTEED TO RUN ON EVERY PAGE REFRESH / REOPEN
     function checkAndUncheck() {
         const nextTimestamp = parseInt(localStorage.getItem(NEXT_UNCHECK_TIMESTAMP_KEY) || '0');
+        // If current time is past the scheduled uncheck time, force the uncheck NOW
         if (Date.now() >= nextTimestamp) {
             performUncheck();
         }
@@ -215,12 +213,12 @@
         tasks.forEach(t => t.completed = false);
         saveTasks(tasks);
         
-        // Immediately calculate and save the NEXT uncheck time (which will be 24 hours from now)
+        // Immediately calculate and save the NEXT uncheck time
         const timeStr = localStorage.getItem(UNCHECK_TIME_KEY) || '00:00';
         const nextTimestamp = calculateNextUncheckTimestamp(timeStr);
         localStorage.setItem(NEXT_UNCHECK_TIMESTAMP_KEY, nextTimestamp);
         
-        // Schedule the timer for the next day
+        // Reschedule the timer for the next day
         scheduleUncheck();
         renderTasks();
         
