@@ -79,6 +79,33 @@
         .btn:hover { opacity: 0.9; }
         .btn-danger { background: var(--danger); font-size: 0.8rem; padding: 0.4rem 0.8rem; }
 
+        /* New styles for reorder buttons */
+        .action-buttons {
+            display: flex;
+            gap: 0.25rem;
+            align-items: center;
+        }
+        .btn-icon {
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            color: var(--text);
+            border-radius: 6px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: background 0.2s;
+            padding: 0;
+        }
+        .btn-icon:hover:not(:disabled) { background: #e5e7eb; }
+        .btn-icon:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
         ul { list-style: none; padding: 0; margin: 0; }
         li {
             display: flex;
@@ -137,21 +164,15 @@
 
     let uncheckTimeoutId = null;
 
-    // Initialize app
     document.addEventListener('DOMContentLoaded', () => {
         const savedTime = localStorage.getItem(UNCHECK_TIME_KEY) || '00:00';
         document.getElementById('uncheckTime').value = savedTime;
         
-        // ALWAYS check and uncheck on page load to catch missed resets
         checkAndUncheck();
-        
-        // THEN schedule the next timer for live updates if tab stays open
         initializeUncheckSchedule();
-        
         renderTasks();
     });
 
-    // If user changes the time, recalculate and re-check immediately
     document.getElementById('uncheckTime').addEventListener('change', (e) => {
         localStorage.setItem(UNCHECK_TIME_KEY, e.target.value);
         checkAndUncheck();
@@ -162,7 +183,7 @@
         if (e.key === 'Enter') addTask();
     });
 
-    // --- CORE UNCHECK LOGIC (NEVER DELETES TASKS) ---
+    // --- CORE UNCHECK LOGIC ---
 
     function initializeUncheckSchedule() {
         const timeStr = localStorage.getItem(UNCHECK_TIME_KEY) || '00:00';
@@ -174,58 +195,43 @@
     function calculateNextUncheckTimestamp(timeStr) {
         const [h, m] = timeStr.split(':').map(Number);
         const now = new Date();
-        
         let nextUncheck = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
-        
         if (now >= nextUncheck) {
             nextUncheck.setDate(nextUncheck.getDate() + 1);
         }
-        
         return nextUncheck.getTime();
     }
 
     function scheduleUncheck() {
         if (uncheckTimeoutId) clearTimeout(uncheckTimeoutId);
-        
         const nextTimestamp = parseInt(localStorage.getItem(NEXT_UNCHECK_TIMESTAMP_KEY));
         const delay = nextTimestamp - Date.now();
-        
         if (delay > 0) {
-            uncheckTimeoutId = setTimeout(() => {
-                performUncheck();
-            }, delay);
+            uncheckTimeoutId = setTimeout(() => performUncheck(), delay);
         }
     }
 
-    // GUARANTEED TO RUN ON EVERY PAGE REFRESH / REOPEN
     function checkAndUncheck() {
         const nextTimestamp = parseInt(localStorage.getItem(NEXT_UNCHECK_TIMESTAMP_KEY) || '0');
-        // If current time is past the scheduled uncheck time, force the uncheck NOW
         if (Date.now() >= nextTimestamp) {
             performUncheck();
         }
     }
 
-    // ONLY UNCHECKS TASKS. NEVER DELETES OR RESETS THE LIST.
     function performUncheck() {
         const tasks = getTasks();
-        // Explicitly only toggle completed status to false. Task text and IDs remain untouched.
         tasks.forEach(t => t.completed = false);
         saveTasks(tasks);
         
-        // Immediately calculate and save the NEXT uncheck time
         const timeStr = localStorage.getItem(UNCHECK_TIME_KEY) || '00:00';
         const nextTimestamp = calculateNextUncheckTimestamp(timeStr);
         localStorage.setItem(NEXT_UNCHECK_TIMESTAMP_KEY, nextTimestamp);
         
-        // Reschedule the timer for the next day
         scheduleUncheck();
         renderTasks();
-        
-        console.log("All tasks unchecked! Next uncheck scheduled for:", new Date(nextTimestamp).toLocaleString());
     }
 
-    // --- TASK MANAGEMENT ---
+    // --- TASK MANAGEMENT & REORDERING ---
 
     function getTasks() {
         return JSON.parse(localStorage.getItem(TASKS_KEY) || '[]');
@@ -265,6 +271,25 @@
         renderTasks();
     }
 
+    // NEW: Reorder logic
+    function moveTask(id, direction) {
+        const tasks = getTasks();
+        const index = tasks.findIndex(t => t.id === id);
+        if (index === -1) return;
+
+        const newIndex = index + direction;
+        // Prevent moving out of bounds
+        if (newIndex < 0 || newIndex >= tasks.length) return;
+
+        // Swap the tasks
+        const temp = tasks[index];
+        tasks[index] = tasks[newIndex];
+        tasks[newIndex] = temp;
+
+        saveTasks(tasks);
+        renderTasks();
+    }
+
     function renderTasks() {
         const tasks = getTasks();
         const list = document.getElementById('taskList');
@@ -278,14 +303,21 @@
         }
         emptyState.style.display = 'none';
 
-        tasks.forEach(task => {
+        tasks.forEach((task, index) => {
             const li = document.createElement('li');
             li.className = task.completed ? 'completed' : '';
+            
+            const isFirst = index === 0;
+            const isLast = index === tasks.length - 1;
             
             li.innerHTML = `
                 <input type="checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTask(${task.id})">
                 <span>${escapeHtml(task.text)}</span>
-                <button class="btn btn-danger" onclick="deleteTask(${task.id})">Delete</button>
+                <div class="action-buttons">
+                    <button class="btn-icon" onclick="moveTask(${task.id}, -1)" ${isFirst ? 'disabled' : ''} title="Move Up">↑</button>
+                    <button class="btn-icon" onclick="moveTask(${task.id}, 1)" ${isLast ? 'disabled' : ''} title="Move Down">↓</button>
+                    <button class="btn btn-danger" onclick="deleteTask(${task.id})">Delete</button>
+                </div>
             `;
             list.appendChild(li);
         });
@@ -297,7 +329,6 @@
         return div.innerHTML;
     }
 
-    // Testing utility: ONLY unchecks, never deletes
     function forceUncheck() {
         performUncheck();
         alert("All tasks have been unchecked! (Simulated daily uncheck)");
