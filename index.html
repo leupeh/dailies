@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Daily Checklist</title>
-    <!-- Favicon: checklist icon (inline SVG, no external file needed) -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%234f46e5'/><path d='M18 32 L28 42 L46 22' stroke='white' stroke-width='6' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
     <style>
         :root {
@@ -128,37 +127,106 @@
     <ul id="taskList"></ul>
     <div id="emptyState" class="empty-state" style="display: none;">No tasks yet. Add one above!</div>
 
-    <!-- Hidden debug button to test the reset logic without waiting -->
     <button class="btn debug-btn" onclick="forceReset()">🛠️ Force Uncheck All (For Testing)</button>
 </div>
 
 <script>
     const TASKS_KEY = 'dailyChecklist_tasks';
     const RESET_TIME_KEY = 'dailyChecklist_resetTime';
-    const LAST_RESET_KEY = 'dailyChecklist_lastReset';
+    const NEXT_RESET_TIMESTAMP_KEY = 'dailyChecklist_nextResetTimestamp';
 
-    // Initialize
+    let resetTimeoutId = null;
+
+    // Initialize app
     document.addEventListener('DOMContentLoaded', () => {
         const savedTime = localStorage.getItem(RESET_TIME_KEY) || '00:00';
         document.getElementById('resetTime').value = savedTime;
         
+        initializeResetSchedule();
         checkAndReset();
         renderTasks();
     });
 
-    // Save reset time when changed
+    // If user changes the time, immediately recalculate the next reset
     document.getElementById('resetTime').addEventListener('change', (e) => {
         localStorage.setItem(RESET_TIME_KEY, e.target.value);
-        checkAndReset();
+        initializeResetSchedule();
+        checkAndReset(); 
     });
 
-    // Allow "Enter" key to add task
     document.getElementById('taskInput').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') addTask();
     });
 
-    // Re-check every minute so the reset happens even if the tab stays open
+    // Fallback: check every 60 seconds in case the browser throttles the exact timer in the background
     setInterval(checkAndReset, 60000);
+
+    // --- CORE RESET LOGIC ---
+
+    function initializeResetSchedule() {
+        const timeStr = localStorage.getItem(RESET_TIME_KEY) || '00:00';
+        const nextTimestamp = calculateNextResetTimestamp(timeStr);
+        localStorage.setItem(NEXT_RESET_TIMESTAMP_KEY, nextTimestamp);
+        scheduleReset();
+    }
+
+    // Calculates the exact millisecond of the NEXT occurrence of the target time
+    function calculateNextResetTimestamp(timeStr) {
+        const [h, m] = timeStr.split(':').map(Number);
+        const now = new Date();
+        
+        // Create a date object for TODAY at the target time
+        let nextReset = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
+        
+        // If that time has already passed today, push it to TOMORROW
+        if (now >= nextReset) {
+            nextReset.setDate(nextReset.getDate() + 1);
+        }
+        
+        return nextReset.getTime(); // Return exact millisecond timestamp
+    }
+
+    // Sets a precise timer to trigger the reset at the exact millisecond
+    function scheduleReset() {
+        if (resetTimeoutId) clearTimeout(resetTimeoutId);
+        
+        const nextTimestamp = parseInt(localStorage.getItem(NEXT_RESET_TIMESTAMP_KEY));
+        const delay = nextTimestamp - Date.now();
+        
+        if (delay > 0) {
+            resetTimeoutId = setTimeout(() => {
+                performReset();
+            }, delay);
+        }
+    }
+
+    // Checks if it's time to reset (used on load and by the 60s fallback)
+    function checkAndReset() {
+        const nextTimestamp = parseInt(localStorage.getItem(NEXT_RESET_TIMESTAMP_KEY) || '0');
+        if (Date.now() >= nextTimestamp) {
+            performReset();
+        }
+    }
+
+    // The actual unchecking process
+    function performReset() {
+        const tasks = getTasks();
+        tasks.forEach(t => t.completed = false);
+        saveTasks(tasks);
+        
+        // Immediately calculate and save the NEXT reset time (which will be 24 hours from now)
+        const timeStr = localStorage.getItem(RESET_TIME_KEY) || '00:00';
+        const nextTimestamp = calculateNextResetTimestamp(timeStr);
+        localStorage.setItem(NEXT_RESET_TIMESTAMP_KEY, nextTimestamp);
+        
+        // Schedule the timer for the next day
+        scheduleReset();
+        renderTasks();
+        
+        console.log("Checklist unchecked! Next reset scheduled for:", new Date(nextTimestamp).toLocaleString());
+    }
+
+    // --- TASK MANAGEMENT ---
 
     function getTasks() {
         return JSON.parse(localStorage.getItem(TASKS_KEY) || '[]');
@@ -166,29 +234,6 @@
 
     function saveTasks(tasks) {
         localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
-    }
-
-    function checkAndReset() {
-        const resetTime = localStorage.getItem(RESET_TIME_KEY) || '00:00';
-        const now = new Date();
-        const todayStr = now.toISOString().split('T')[0];
-        const lastResetStr = localStorage.getItem(LAST_RESET_KEY) || '';
-
-        const [hours, minutes] = resetTime.split(':');
-        const todayResetDate = new Date(
-            now.getFullYear(), now.getMonth(), now.getDate(),
-            parseInt(hours, 10), parseInt(minutes, 10), 0, 0
-        );
-
-        if (todayStr > lastResetStr && now >= todayResetDate) {
-            // Uncheck all tasks instead of deleting them
-            const tasks = getTasks();
-            tasks.forEach(t => t.completed = false);
-            saveTasks(tasks);
-            localStorage.setItem(LAST_RESET_KEY, todayStr);
-            renderTasks();
-            console.log("Checklist unchecked for the new day!");
-        }
     }
 
     function addTask() {
@@ -253,13 +298,9 @@
         return div.innerHTML;
     }
 
-    // Testing utility: unchecks all tasks by simulating yesterday's reset date
+    // Testing utility
     function forceReset() {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        localStorage.setItem(LAST_RESET_KEY, yesterday.toISOString().split('T')[0]);
-        checkAndReset();
-        renderTasks();
+        performReset();
         alert("All tasks have been unchecked! (Simulated new day)");
     }
 </script>
