@@ -115,8 +115,8 @@
     <h1>✅ Daily Checklist</h1>
     
     <div class="settings">
-        <label for="resetTime">Daily Reset Time:</label>
-        <input type="time" id="resetTime" value="00:00">
+        <label for="uncheckTime">Daily Uncheck Time:</label>
+        <input type="time" id="uncheckTime" value="00:00">
     </div>
 
     <div class="input-group">
@@ -127,31 +127,31 @@
     <ul id="taskList"></ul>
     <div id="emptyState" class="empty-state" style="display: none;">No tasks yet. Add one above!</div>
 
-    <button class="btn debug-btn" onclick="forceReset()">🛠️ Force Uncheck All (For Testing)</button>
+    <button class="btn debug-btn" onclick="forceUncheck()">🛠️ Force Uncheck All (For Testing)</button>
 </div>
 
 <script>
     const TASKS_KEY = 'dailyChecklist_tasks';
-    const RESET_TIME_KEY = 'dailyChecklist_resetTime';
-    const NEXT_RESET_TIMESTAMP_KEY = 'dailyChecklist_nextResetTimestamp';
+    const UNCHECK_TIME_KEY = 'dailyChecklist_uncheckTime';
+    const NEXT_UNCHECK_TIMESTAMP_KEY = 'dailyChecklist_nextUncheckTimestamp';
 
-    let resetTimeoutId = null;
+    let uncheckTimeoutId = null;
 
     // Initialize app
     document.addEventListener('DOMContentLoaded', () => {
-        const savedTime = localStorage.getItem(RESET_TIME_KEY) || '00:00';
-        document.getElementById('resetTime').value = savedTime;
+        const savedTime = localStorage.getItem(UNCHECK_TIME_KEY) || '00:00';
+        document.getElementById('uncheckTime').value = savedTime;
         
-        initializeResetSchedule();
-        checkAndReset();
+        initializeUncheckSchedule();
+        checkAndUncheck();
         renderTasks();
     });
 
-    // If user changes the time, immediately recalculate the next reset
-    document.getElementById('resetTime').addEventListener('change', (e) => {
-        localStorage.setItem(RESET_TIME_KEY, e.target.value);
-        initializeResetSchedule();
-        checkAndReset(); 
+    // If user changes the time, immediately recalculate the next uncheck
+    document.getElementById('uncheckTime').addEventListener('change', (e) => {
+        localStorage.setItem(UNCHECK_TIME_KEY, e.target.value);
+        initializeUncheckSchedule();
+        checkAndUncheck(); 
     });
 
     document.getElementById('taskInput').addEventListener('keypress', (e) => {
@@ -159,71 +159,72 @@
     });
 
     // Fallback: check every 60 seconds in case the browser throttles the exact timer in the background
-    setInterval(checkAndReset, 60000);
+    setInterval(checkAndUncheck, 60000);
 
-    // --- CORE RESET LOGIC ---
+    // --- CORE UNCHECK LOGIC (NEVER DELETES TASKS) ---
 
-    function initializeResetSchedule() {
-        const timeStr = localStorage.getItem(RESET_TIME_KEY) || '00:00';
-        const nextTimestamp = calculateNextResetTimestamp(timeStr);
-        localStorage.setItem(NEXT_RESET_TIMESTAMP_KEY, nextTimestamp);
-        scheduleReset();
+    function initializeUncheckSchedule() {
+        const timeStr = localStorage.getItem(UNCHECK_TIME_KEY) || '00:00';
+        const nextTimestamp = calculateNextUncheckTimestamp(timeStr);
+        localStorage.setItem(NEXT_UNCHECK_TIMESTAMP_KEY, nextTimestamp);
+        scheduleUncheck();
     }
 
     // Calculates the exact millisecond of the NEXT occurrence of the target time
-    function calculateNextResetTimestamp(timeStr) {
+    function calculateNextUncheckTimestamp(timeStr) {
         const [h, m] = timeStr.split(':').map(Number);
         const now = new Date();
         
         // Create a date object for TODAY at the target time
-        let nextReset = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
+        let nextUncheck = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
         
         // If that time has already passed today, push it to TOMORROW
-        if (now >= nextReset) {
-            nextReset.setDate(nextReset.getDate() + 1);
+        if (now >= nextUncheck) {
+            nextUncheck.setDate(nextUncheck.getDate() + 1);
         }
         
-        return nextReset.getTime(); // Return exact millisecond timestamp
+        return nextUncheck.getTime(); // Return exact millisecond timestamp
     }
 
-    // Sets a precise timer to trigger the reset at the exact millisecond
-    function scheduleReset() {
-        if (resetTimeoutId) clearTimeout(resetTimeoutId);
+    // Sets a precise timer to trigger the uncheck at the exact millisecond
+    function scheduleUncheck() {
+        if (uncheckTimeoutId) clearTimeout(uncheckTimeoutId);
         
-        const nextTimestamp = parseInt(localStorage.getItem(NEXT_RESET_TIMESTAMP_KEY));
+        const nextTimestamp = parseInt(localStorage.getItem(NEXT_UNCHECK_TIMESTAMP_KEY));
         const delay = nextTimestamp - Date.now();
         
         if (delay > 0) {
-            resetTimeoutId = setTimeout(() => {
-                performReset();
+            uncheckTimeoutId = setTimeout(() => {
+                performUncheck();
             }, delay);
         }
     }
 
-    // Checks if it's time to reset (used on load and by the 60s fallback)
-    function checkAndReset() {
-        const nextTimestamp = parseInt(localStorage.getItem(NEXT_RESET_TIMESTAMP_KEY) || '0');
+    // Checks if it's time to uncheck (used on load and by the 60s fallback)
+    function checkAndUncheck() {
+        const nextTimestamp = parseInt(localStorage.getItem(NEXT_UNCHECK_TIMESTAMP_KEY) || '0');
         if (Date.now() >= nextTimestamp) {
-            performReset();
+            performUncheck();
         }
     }
 
-    // The actual unchecking process
-    function performReset() {
+    // ONLY UNCHECKS TASKS. NEVER DELETES OR RESETS THE LIST.
+    function performUncheck() {
         const tasks = getTasks();
+        // Explicitly only toggle completed status to false. Task text and IDs remain untouched.
         tasks.forEach(t => t.completed = false);
         saveTasks(tasks);
         
-        // Immediately calculate and save the NEXT reset time (which will be 24 hours from now)
-        const timeStr = localStorage.getItem(RESET_TIME_KEY) || '00:00';
-        const nextTimestamp = calculateNextResetTimestamp(timeStr);
-        localStorage.setItem(NEXT_RESET_TIMESTAMP_KEY, nextTimestamp);
+        // Immediately calculate and save the NEXT uncheck time (which will be 24 hours from now)
+        const timeStr = localStorage.getItem(UNCHECK_TIME_KEY) || '00:00';
+        const nextTimestamp = calculateNextUncheckTimestamp(timeStr);
+        localStorage.setItem(NEXT_UNCHECK_TIMESTAMP_KEY, nextTimestamp);
         
         // Schedule the timer for the next day
-        scheduleReset();
+        scheduleUncheck();
         renderTasks();
         
-        console.log("Checklist unchecked! Next reset scheduled for:", new Date(nextTimestamp).toLocaleString());
+        console.log("All tasks unchecked! Next uncheck scheduled for:", new Date(nextTimestamp).toLocaleString());
     }
 
     // --- TASK MANAGEMENT ---
@@ -298,10 +299,10 @@
         return div.innerHTML;
     }
 
-    // Testing utility
-    function forceReset() {
-        performReset();
-        alert("All tasks have been unchecked! (Simulated new day)");
+    // Testing utility: ONLY unchecks, never deletes
+    function forceUncheck() {
+        performUncheck();
+        alert("All tasks have been unchecked! (Simulated daily uncheck)");
     }
 </script>
 
