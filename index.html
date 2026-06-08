@@ -79,7 +79,6 @@
         .btn:hover { opacity: 0.9; }
         .btn-danger { background: var(--danger); font-size: 0.8rem; padding: 0.4rem 0.8rem; }
 
-        /* New styles for reorder buttons */
         .action-buttons {
             display: flex;
             gap: 0.25rem;
@@ -101,10 +100,19 @@
             padding: 0;
         }
         .btn-icon:hover:not(:disabled) { background: #e5e7eb; }
-        .btn-icon:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
+        .btn-icon:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        /* Drag Handle Styles */
+        .drag-handle {
+            cursor: grab;
+            color: var(--muted);
+            font-size: 1.2rem;
+            padding: 0 0.25rem;
+            user-select: none;
+            display: flex;
+            align-items: center;
         }
+        .drag-handle:active { cursor: grabbing; }
 
         ul { list-style: none; padding: 0; margin: 0; }
         li {
@@ -113,8 +121,20 @@
             padding: 0.75rem;
             border-bottom: 1px solid #e5e7eb;
             gap: 0.75rem;
+            transition: background-color 0.2s;
         }
         li:last-child { border-bottom: none; }
+        
+        /* Dragging visual feedback */
+        li.dragging {
+            opacity: 0.4;
+            background-color: #f3f4f6;
+            border: 2px dashed var(--primary);
+        }
+        li.drag-over {
+            border-top: 2px solid var(--primary);
+        }
+
         li input[type="checkbox"] { width: 1.2rem; height: 1.2rem; cursor: pointer; }
         li span { flex: 1; font-size: 1rem; }
         li.completed span {
@@ -271,23 +291,69 @@
         renderTasks();
     }
 
-    // NEW: Reorder logic
     function moveTask(id, direction) {
         const tasks = getTasks();
         const index = tasks.findIndex(t => t.id === id);
         if (index === -1) return;
 
         const newIndex = index + direction;
-        // Prevent moving out of bounds
         if (newIndex < 0 || newIndex >= tasks.length) return;
 
-        // Swap the tasks
         const temp = tasks[index];
         tasks[index] = tasks[newIndex];
         tasks[newIndex] = temp;
 
         saveTasks(tasks);
         renderTasks();
+    }
+
+    // --- DRAG AND DROP LOGIC ---
+
+    function handleDragStart(e) {
+        this.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        // Required for Firefox
+        e.dataTransfer.setData('text/plain', this.dataset.id);
+    }
+
+    function handleDragOver(e) {
+        e.preventDefault(); // Necessary to allow dropping
+        e.dataTransfer.dropEffect = 'move';
+
+        const draggingItem = document.querySelector('.dragging');
+        if (!draggingItem) return;
+
+        const siblings = [...document.querySelectorAll('#taskList li:not(.dragging)')];
+
+        // Find the sibling that the mouse is currently hovering over
+        const nextSibling = siblings.find(sibling => {
+            const rect = sibling.getBoundingClientRect();
+            return e.clientY <= rect.top + rect.height / 2;
+        });
+
+        const list = document.getElementById('taskList');
+        if (nextSibling) {
+            list.insertBefore(draggingItem, nextSibling);
+        } else {
+            list.appendChild(draggingItem);
+        }
+    }
+
+    function handleDragEnd(e) {
+        this.classList.remove('dragging');
+        
+        // Remove any drag-over styling
+        document.querySelectorAll('#taskList li').forEach(li => li.classList.remove('drag-over'));
+
+        // Rebuild the tasks array based on the new DOM order
+        const listItems = document.querySelectorAll('#taskList li');
+        const newOrderIds = Array.from(listItems).map(li => parseInt(li.dataset.id));
+
+        const tasks = getTasks();
+        const reorderedTasks = newOrderIds.map(id => tasks.find(t => t.id === id));
+
+        saveTasks(reorderedTasks);
+        renderTasks(); // Re-render to ensure clean state
     }
 
     function renderTasks() {
@@ -306,11 +372,19 @@
         tasks.forEach((task, index) => {
             const li = document.createElement('li');
             li.className = task.completed ? 'completed' : '';
+            li.dataset.id = task.id; // Store ID in dataset for drag/drop
             
+            // Add Drag & Drop Event Listeners
+            li.draggable = true;
+            li.addEventListener('dragstart', handleDragStart);
+            li.addEventListener('dragover', handleDragOver);
+            li.addEventListener('dragend', handleDragEnd);
+
             const isFirst = index === 0;
             const isLast = index === tasks.length - 1;
             
             li.innerHTML = `
+                <div class="drag-handle" title="Drag to reorder"></div>
                 <input type="checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTask(${task.id})">
                 <span>${escapeHtml(task.text)}</span>
                 <div class="action-buttons">
