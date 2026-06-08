@@ -15,6 +15,7 @@
             --muted: #6b7280;
             --danger: #ef4444;
             --border: #e5e7eb;
+            --success: #10b981;
         }
 
         * { box-sizing: border-box; }
@@ -29,7 +30,7 @@
         }
 
         .container {
-            max-width: 900px; /* Wider to accommodate horizontal cards */
+            max-width: 1100px;
             margin: 0 auto;
         }
 
@@ -41,7 +42,6 @@
             color: var(--text);
         }
         
-        /* Settings & Input Area */
         .controls-area {
             background: var(--card-bg);
             padding: 1.5rem;
@@ -68,8 +68,12 @@
             font-family: inherit;
         }
 
-        .input-group { display: flex; gap: 0.75rem; }
-        .input-group input {
+        .input-group { 
+            display: flex; 
+            gap: 0.75rem; 
+            margin-bottom: 1rem;
+        }
+        .input-group input[type="text"] {
             flex: 1;
             padding: 0.8rem 1rem;
             border: 2px solid var(--border);
@@ -78,7 +82,19 @@
             outline: none;
             transition: border-color 0.2s;
         }
-        .input-group input:focus { border-color: var(--primary); }
+        .input-group input[type="text"]:focus { border-color: var(--primary); }
+        
+        .input-group select {
+            padding: 0.8rem 1rem;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 1rem;
+            outline: none;
+            background: white;
+            cursor: pointer;
+            min-width: 150px;
+        }
+        .input-group select:focus { border-color: var(--primary); }
         
         .btn-add {
             padding: 0 1.5rem;
@@ -91,6 +107,94 @@
             transition: background 0.2s;
         }
         .btn-add:hover { background: var(--primary-hover); }
+
+        /* Group Management */
+        .group-management {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            align-items: center;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .group-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0.8rem;
+            background: #e0e7ff;
+            color: var(--primary);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .group-tag .delete-group {
+            background: none;
+            border: none;
+            color: var(--primary);
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 0;
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+
+        .group-tag .delete-group:hover {
+            background: rgba(79, 70, 229, 0.2);
+        }
+
+        .add-group-btn {
+            padding: 0.4rem 0.8rem;
+            background: transparent;
+            color: var(--muted);
+            border: 1px dashed var(--border);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .add-group-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        /* Group Sections */
+        .group-section {
+            margin-bottom: 2.5rem;
+        }
+
+        .group-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--primary);
+        }
+
+        .group-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin: 0;
+        }
+
+        .group-count {
+            background: var(--primary);
+            color: white;
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
 
         /* GRID LAYOUT FOR TASKS */
         #taskList {
@@ -122,14 +226,12 @@
             border-color: var(--primary);
         }
 
-        /* Dragging States */
         .task-card.dragging {
             opacity: 0.4;
             border: 2px dashed var(--primary);
             background: #f9fafb;
         }
 
-        /* Card Internals */
         .drag-handle {
             cursor: grab;
             color: #d1d5db;
@@ -167,7 +269,7 @@
         .card-actions {
             display: flex;
             gap: 0.25rem;
-            opacity: 0; /* Hidden by default for cleaner look */
+            opacity: 0;
             transition: opacity 0.2s;
         }
         .task-card:hover .card-actions { opacity: 1; }
@@ -223,18 +325,98 @@
         }
         .debug-btn:hover { background: #e5e7eb; color: var(--text); }
 
-        /* Mobile Responsiveness */
+        /* Modal for editing group */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            padding: 2rem;
+            border-radius: 16px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+        }
+
+        .modal h2 {
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+            color: var(--text);
+        }
+
+        .modal input {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+        }
+
+        .modal-btn {
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .modal-btn.primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .modal-btn.primary:hover {
+            background: var(--primary-hover);
+        }
+
+        .modal-btn.secondary {
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .modal-btn.secondary:hover {
+            background: #e5e7eb;
+        }
+
         @media (max-width: 600px) {
             #taskList {
-                grid-template-columns: 1fr; /* Single column on phone */
+                grid-template-columns: 1fr;
             }
             .card-actions {
-                opacity: 1; /* Always show actions on mobile since there's no hover */
+                opacity: 1;
             }
             .settings-row {
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 0.5rem;
+            }
+            .input-group {
+                flex-direction: column;
+            }
+            .input-group select {
+                min-width: auto;
             }
         }
     </style>
@@ -252,22 +434,44 @@
 
         <div class="input-group">
             <input type="text" id="taskInput" placeholder="What needs to be done today?" maxlength="100">
+            <select id="groupSelect">
+                <option value="">No Group</option>
+            </select>
             <button class="btn-add" onclick="addTask()">Add Task</button>
+        </div>
+
+        <div class="group-management">
+            <span style="font-size: 0.9rem; color: var(--muted); font-weight: 600;">Groups:</span>
+            <div id="groupTags"></div>
+            <button class="add-group-btn" onclick="showAddGroupModal()">+ Add Group</button>
         </div>
     </div>
 
-    <ul id="taskList"></ul>
-    <div id="emptyState" class="empty-state" style="display: none;">No tasks yet. Add one above!</div>
+    <div id="groupsContainer"></div>
 
     <button class="debug-btn" onclick="forceUncheck()">🛠️ Force Uncheck All (Test Reset)</button>
 </div>
 
+<!-- Modal for adding/editing groups -->
+<div class="modal-overlay" id="groupModal">
+    <div class="modal">
+        <h2 id="modalTitle">Add Group</h2>
+        <input type="text" id="groupNameInput" placeholder="Group name" maxlength="50">
+        <div class="modal-buttons">
+            <button class="modal-btn secondary" onclick="closeGroupModal()">Cancel</button>
+            <button class="modal-btn primary" onclick="saveGroup()">Save</button>
+        </div>
+    </div>
+</div>
+
 <script>
     const TASKS_KEY = 'dailyChecklist_tasks';
+    const GROUPS_KEY = 'dailyChecklist_groups';
     const UNCHECK_TIME_KEY = 'dailyChecklist_uncheckTime';
     const NEXT_UNCHECK_TIMESTAMP_KEY = 'dailyChecklist_nextUncheckTimestamp';
 
     let uncheckTimeoutId = null;
+    let editingGroupId = null;
 
     document.addEventListener('DOMContentLoaded', () => {
         const savedTime = localStorage.getItem(UNCHECK_TIME_KEY) || '00:00';
@@ -275,6 +479,7 @@
         
         checkAndUncheck();
         initializeUncheckSchedule();
+        renderGroups();
         renderTasks();
     });
 
@@ -287,6 +492,105 @@
     document.getElementById('taskInput').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') addTask();
     });
+
+    document.getElementById('groupNameInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') saveGroup();
+    });
+
+    // --- GROUP MANAGEMENT ---
+
+    function getGroups() {
+        return JSON.parse(localStorage.getItem(GROUPS_KEY) || '[]');
+    }
+
+    function saveGroups(groups) {
+        localStorage.setItem(GROUPS_KEY, JSON.stringify(groups));
+    }
+
+    function showAddGroupModal() {
+        editingGroupId = null;
+        document.getElementById('modalTitle').textContent = 'Add Group';
+        document.getElementById('groupNameInput').value = '';
+        document.getElementById('groupModal').classList.add('active');
+        document.getElementById('groupNameInput').focus();
+    }
+
+    function showEditGroupModal(groupId) {
+        const groups = getGroups();
+        const group = groups.find(g => g.id === groupId);
+        if (!group) return;
+
+        editingGroupId = groupId;
+        document.getElementById('modalTitle').textContent = 'Edit Group';
+        document.getElementById('groupNameInput').value = group.name;
+        document.getElementById('groupModal').classList.add('active');
+        document.getElementById('groupNameInput').focus();
+    }
+
+    function closeGroupModal() {
+        document.getElementById('groupModal').classList.remove('active');
+        editingGroupId = null;
+    }
+
+    function saveGroup() {
+        const name = document.getElementById('groupNameInput').value.trim();
+        if (!name) return;
+
+        const groups = getGroups();
+        
+        if (editingGroupId) {
+            const group = groups.find(g => g.id === editingGroupId);
+            if (group) {
+                group.name = name;
+            }
+        } else {
+            groups.push({ id: Date.now(), name: name });
+        }
+
+        saveGroups(groups);
+        closeGroupModal();
+        renderGroups();
+        renderTasks();
+    }
+
+    function deleteGroup(groupId) {
+        if (!confirm('Delete this group? Tasks will be moved to "No Group".')) return;
+
+        let groups = getGroups();
+        groups = groups.filter(g => g.id !== groupId);
+        saveGroups(groups);
+
+        // Move tasks from deleted group to no group
+        const tasks = getTasks();
+        tasks.forEach(task => {
+            if (task.groupId === groupId) {
+                task.groupId = null;
+            }
+        });
+        saveTasks(tasks);
+
+        renderGroups();
+        renderTasks();
+    }
+
+    function renderGroups() {
+        const groups = getGroups();
+        const groupTags = document.getElementById('groupTags');
+        const groupSelect = document.getElementById('groupSelect');
+
+        // Render group tags
+        groupTags.innerHTML = groups.map(group => `
+            <span class="group-tag">
+                ${escapeHtml(group.name)}
+                <button class="delete-group" onclick="showEditGroupModal(${group.id})" title="Edit">✎</button>
+                <button class="delete-group" onclick="deleteGroup(${group.id})" title="Delete">×</button>
+            </span>
+        `).join(' ');
+
+        // Update select dropdown
+        groupSelect.innerHTML = '<option value="">No Group</option>' + 
+            groups.map(group => `<option value="${group.id}">${escapeHtml(group.name)}</option>`).join('');
+    }
 
     // --- CORE UNCHECK LOGIC ---
 
@@ -348,11 +652,19 @@
 
     function addTask() {
         const input = document.getElementById('taskInput');
+        const groupSelect = document.getElementById('groupSelect');
         const text = input.value.trim();
         if (!text) return;
 
         const tasks = getTasks();
-        tasks.push({ id: Date.now(), text: text, completed: false });
+        const groupId = groupSelect.value ? parseInt(groupSelect.value) : null;
+        
+        tasks.push({ 
+            id: Date.now(), 
+            text: text, 
+            completed: false,
+            groupId: groupId
+        });
         saveTasks(tasks);
         
         input.value = '';
@@ -376,6 +688,16 @@
         renderTasks();
     }
 
+    function changeTaskGroup(id, newGroupId) {
+        const tasks = getTasks();
+        const task = tasks.find(t => t.id === id);
+        if (task) {
+            task.groupId = newGroupId;
+            saveTasks(tasks);
+            renderTasks();
+        }
+    }
+
     function moveTask(id, direction) {
         const tasks = getTasks();
         const index = tasks.findIndex(t => t.id === id);
@@ -392,7 +714,7 @@
         renderTasks();
     }
 
-    // --- DRAG AND DROP LOGIC (Updated for Grid) ---
+    // --- DRAG AND DROP LOGIC ---
 
     function handleDragStart(e) {
         this.classList.add('dragging');
@@ -409,10 +731,8 @@
 
         const siblings = [...document.querySelectorAll('#taskList li:not(.dragging)')];
 
-        // Find the sibling that the mouse is currently hovering over
         const nextSibling = siblings.find(sibling => {
             const rect = sibling.getBoundingClientRect();
-            // Simple vertical check works well for grid reordering too
             return e.clientY <= rect.top + rect.height / 2;
         });
 
@@ -427,7 +747,6 @@
     function handleDragEnd(e) {
         this.classList.remove('dragging');
         
-        // Rebuild the tasks array based on the new DOM order
         const listItems = document.querySelectorAll('#taskList li');
         const newOrderIds = Array.from(listItems).map(li => parseInt(li.dataset.id));
 
@@ -440,23 +759,61 @@
 
     function renderTasks() {
         const tasks = getTasks();
-        const list = document.getElementById('taskList');
-        const emptyState = document.getElementById('emptyState');
+        const groups = getGroups();
+        const container = document.getElementById('groupsContainer');
         
-        list.innerHTML = '';
-        
-        if (tasks.length === 0) {
-            emptyState.style.display = 'block';
-            return;
+        container.innerHTML = '';
+
+        // Group tasks
+        const groupedTasks = {};
+        tasks.forEach(task => {
+            const groupId = task.groupId || 'ungrouped';
+            if (!groupedTasks[groupId]) {
+                groupedTasks[groupId] = [];
+            }
+            groupedTasks[groupId].push(task);
+        });
+
+        // Render ungrouped tasks first
+        if (groupedTasks['ungrouped'] && groupedTasks['ungrouped'].length > 0) {
+            renderGroupSection(container, null, groupedTasks['ungrouped']);
         }
-        emptyState.style.display = 'none';
+
+        // Render each group
+        groups.forEach(group => {
+            if (groupedTasks[group.id] && groupedTasks[group.id].length > 0) {
+                renderGroupSection(container, group, groupedTasks[group.id]);
+            }
+        });
+
+        // Show empty state if no tasks at all
+        if (tasks.length === 0) {
+            container.innerHTML = '<div class="empty-state">No tasks yet. Add one above!</div>';
+        }
+    }
+
+    function renderGroupSection(container, group, tasks) {
+        const section = document.createElement('div');
+        section.className = 'group-section';
+
+        const header = document.createElement('div');
+        header.className = 'group-header';
+        
+        const title = group ? group.name : 'Ungrouped';
+        header.innerHTML = `
+            <h2 class="group-title">${escapeHtml(title)}</h2>
+            <span class="group-count">${tasks.length}</span>
+        `;
+        section.appendChild(header);
+
+        const list = document.createElement('ul');
+        list.id = 'taskList';
 
         tasks.forEach((task, index) => {
             const li = document.createElement('li');
             li.className = task.completed ? 'task-card completed' : 'task-card';
             li.dataset.id = task.id;
             
-            // Drag & Drop Events
             li.draggable = true;
             li.addEventListener('dragstart', handleDragStart);
             li.addEventListener('dragover', handleDragOver);
@@ -477,6 +834,9 @@
             `;
             list.appendChild(li);
         });
+
+        section.appendChild(list);
+        container.appendChild(section);
     }
 
     function escapeHtml(text) {
